@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Kelp Forest => Urchin Barren</title>
+
+    <!-- <link rel="stylesheet" href="./styles.css"></link> -->
+  </head>
+  <body style="font-family: Arial, sans-serif">
+    <script type="module">
+      import * as util from "https://code.agentscript.org/src/utils.js";
+      import Animator from "https://code.agentscript.org/src/Animator.js";
+      import TwoDraw from "https://code.agentscript.org/src/TwoDraw.js";
+      import Model from "https://code.agentscript.org/src/Model.js";
+
+      class UrchinModel extends Model {
+        wiggleAngle = 45;
+        speed = 0.1;
+        setup() {
+          this.turtleBreeds("kelp urchin seaStar");
+
+          this.kelp.create(
+            parseInt(document.getElementById("kelp").value),
+            (t) => {
+              const patch = this.patches.oneOf();
+              t.setxy(patch.x, patch.y);
+            }
+          );
+
+          this.seaStar.create(
+            parseInt(document.getElementById("seaStar").value),
+            (t) => {
+              const patch = this.patches.oneOf();
+              t.setxy(patch.x, patch.y);
+            }
+          );
+          this.seaStar.setDefault("atEdge", "bounce");
+
+          this.urchin.create(
+            parseInt(document.getElementById("urchin").value),
+            (t) => {
+              const patch = this.patches.oneOf();
+              t.setxy(patch.x, patch.y);
+            }
+          );
+
+          // this.urchin.setDefault("atEdge", "bounce");
+
+          this.urchin.speed = 0.1;
+
+          this.tickCounter = 0;
+          this.updateTicks = () => {
+            this.tickCounter++;
+            if (this.tickCounter >= 366) {
+              this.tickCounter = 0;
+            }
+          };
+
+          this.spawnUrchin = function spawnUrchin(tickCounter) {
+            if (tickCounter >= 365) {
+              this.urchin.create(this.urchin.length * 2, (t) => {
+                const patch = this.patches.oneOf();
+                t.setxy(patch.x, patch.y);
+              });
+            }
+          };
+
+          this.reseedKelp = function reseedKelp(tickCounter) {
+            if (tickCounter >= 365) {
+              this.kelp.create(this.kelp.length * 3, (t) => {
+                const patch = this.patches.oneOf();
+                t.setxy(patch.x, patch.y);
+              });
+            }
+          };
+
+          this.spawnSeaStars = function spawnSeaStars(tickCounter) {
+            if (this.seaStar.length > 0) {
+              if (tickCounter >= 365) {
+                this.seaStar.create(2, (t) => {
+                  const patch = this.patches.oneOf();
+                  t.setxy(patch.x, patch.y);
+                });
+              }
+            }
+          };
+        }
+
+        step() {
+          this.urchin.ask((t) => {
+            let closestSeaStar = false;
+            if (this.seaStar.length > 0) {
+              closestSeaStar = this.seaStar.minOneOf((seaStar) =>
+                t.distance(seaStar)
+              );
+            }
+
+            if (closestSeaStar && t.distance(closestSeaStar <= 2)) {
+              const seaStarHeading = closestSeaStar.heading;
+              t.heading = seaStarHeading * -1;
+              t.forward(this.speed);
+            } else {
+              t.heading += util.randomCentered(this.wiggleAngle);
+              t.forward(this.speed);
+            }
+          });
+
+          this.seaStar.ask((t) => {
+            let closestUrchin = false;
+            if (this.urchin.length > 0) {
+              closestUrchin = this.urchin.minOneOf((urchin) =>
+                t.distance(urchin)
+              );
+            }
+
+            if (closestUrchin && t.distance(closestUrchin) <= 2) {
+              t.face(closestUrchin);
+              t.forward(this.speed);
+            } else {
+              t.heading += util.randomCentered(this.wiggleAngle);
+              t.forward(this.speed);
+            }
+          });
+
+          this.urchin.forEach((t) => {
+            const kelpHere = this.kelp.filter((kelp) => kelp.patch === t.patch);
+            kelpHere.forEach((kelp) => kelp.die());
+
+            const seaStarHere = this.seaStar.filter(
+              (seaStar) => seaStar.patch === t.patch
+            );
+            if (seaStarHere.length > 0) {
+              t.die();
+            }
+          });
+
+          this.updateTicks();
+          this.spawnUrchin(this.tickCounter);
+          this.reseedKelp(this.tickCounter);
+          this.spawnSeaStars(this.tickCounter);
+        }
+
+        clearTurtles() {
+          this.urchin.clear();
+          this.kelp.clear();
+          this.seaStar.clear();
+        }
+      }
+
+      const model = new UrchinModel();
+      await model.startup();
+      model.setup();
+
+      const drawOptions = {
+        turtlesSize: (t) => {
+          if (t.breed.name === "urchin") {
+            return 1;
+          } else if (t.breed.name === "kelp") {
+            return 2;
+          } else if (t.breed.name === "seaStar") {
+            return 1.5;
+          } else {
+            return 1; // Default size for any other breeds
+          }
+        },
+        turtlesColor: (t) => {
+          if (t.breed.name === "kelp") {
+            return "green";
+          } else if (t.breed.name === "urchin") {
+            return "purple";
+          } else if (t.breed.name === "seaStar") {
+            return "orange";
+          } else {
+            return grey;
+          }
+        },
+        turtlesShape: (t) => {
+          if (t.breed.name === "urchin") {
+            return "circle";
+          } else if (t.breed.name === "kelp") {
+            return "dart";
+          } else {
+            return "pentagon";
+          }
+        },
+      };
+
+      const view = new TwoDraw(model, {
+        div: "modelDiv",
+        patchSize: 20,
+        drawOptions,
+      });
+
+      const anim = new Animator(
+        () => {
+          if (model.done) anim.stop();
+          model.step();
+          view.draw();
+          updateSteps(anim.ticks);
+        },
+        1825, // run for 5 years of model time
+        30 // 30 fps
+      );
+
+      util.toWindow({ model, view, anim });
+
+      let year = 0;
+      function updateSteps(ticks) {
+        if (ticks % 365 === 0) {
+          year++;
+        }
+        document.getElementById("stepCount").innerHTML = `Year: ${year}`;
+      }
+
+      let playing = true;
+      document.getElementById("startButton").addEventListener("click", () => {
+        document.getElementById("stepCount").innerHTML = `Step Count: ${0}`;
+        anim.ticks = 0;
+        year = 0;
+        model.clearTurtles();
+        anim.stop();
+        model.setup(), anim.start();
+      });
+
+      document.getElementById("pauseButton").addEventListener("click", () => {
+        playing = !playing;
+        playing ? anim.start() : anim.stop();
+      });
+    </script>
+
+    <h1 style="margin-top: 20px; text-align: center">
+      In a Kelp stand off the Mendocino Coast....
+    </h1>
+    <div
+      id="bodyContainer"
+      style="display: flex; justify-content: center; align-items: center"
+    >
+      <div
+        id="inputContainer"
+        style="margin: 20px; display: flex; flex-direction: column"
+      >
+        <p id="stepCount">Year:</p>
+        <label for="kelp">Kelp:</label>
+        <input
+          type="number"
+          id="kelp"
+          value="500"
+          min="0"
+          style="margin: 2px; padding: 2px"
+        />
+        <label for="urchin">Urchin:</label>
+        <input
+          type="number"
+          id="urchin"
+          value="50"
+          min="0"
+          style="margin: 2px; padding: 2px"
+        />
+        <label for="seaStar">Seastars:</label>
+        <input
+          type="number"
+          id="seaStar"
+          value="5"
+          min="0"
+          style="margin: 2px; padding: 2px"
+        />
+        <button id="startButton" style="margin: 5px">Start Simulation</button>
+        <button id="pauseButton" style="margin: 5px">
+          Pause/Play Simulation
+        </button>
+      </div>
+
+      <div id="modelDiv"></div>
+    </div>
+  </body>
+</html>

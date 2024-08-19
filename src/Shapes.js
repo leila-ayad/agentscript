@@ -69,7 +69,8 @@ class Shapes {
 
     imageName(name, pixels, fill, stroke) {
         const path = this.getPath(name)
-        if (!Number.isInteger(pixels)) throw Error(`imageName: pixels is not integer: ${name}`)
+        if (!Number.isInteger(pixels))
+            throw Error(`imageName: pixels is not integer: ${name}`)
         if (!path) throw Error(`imageName: ${name} not in Shapes`)
 
         if (path.name === 'imagePath') return `${name}_${pixels}_image`
@@ -263,10 +264,10 @@ const paths = {
     },
     pentagon(ctx) {
         poly(ctx, [
-            [0, -0.5], 
-            [0.48, -0.15], 
-            [0.29, 0.40], 
-            [-0.29, 0.40], 
+            [0, -0.5],
+            [0.48, -0.15],
+            [0.29, 0.4],
+            [-0.29, 0.4],
             [-0.48, -0.15],
         ])
     },
